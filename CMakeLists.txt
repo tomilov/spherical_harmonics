@@ -8,7 +8,7 @@ cmake_minimum_required(VERSION 3.4 FATAL_ERROR)
 include_directories(".")
 include_directories("Math/")
 
-add_executable(${PROJECT_NAME} "main.cpp" "Math/Vector.cpp")
+add_executable(${PROJECT_NAME} "main.cpp" "Platform.cpp" "Math/Vector.cpp")
 
 add_compile_options(-W -Wall)
 set_target_properties(${PROJECT_NAME} PROPERTIES

@@ -375,7 +375,12 @@ float length(const float3 &v);
 float length(const float4 &v);
 
 /** Compute the distance between two nD vectors, where n is [2-4] */
-#define distance(u, v) length((u) - (v))
+//#define distance(u, v) length((u) - (v))
+template< typename T >
+float distance(T u, T v)
+{
+    return length(u - v);
+}
 
 /** Compute the cross product of two 3D vectors */
 float3 cross(const float3 &u, const float3 &v);

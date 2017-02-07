@@ -157,7 +157,7 @@ struct spherical_harmonics
 
     float const solid_angle = (4 * std::acos(-one)) / NVERTICES; // pi / 5
 
-    float cosine[NVERTICES][BANDS * BANDS];
+    float cosine[BANDS * BANDS];
     float mean[NVERTICES][BANDS * BANDS];
 
     void init()
@@ -196,29 +196,36 @@ struct spherical_harmonics
         }
         assert(sh_.size() == (BANDS * BANDS * NSAMPLES));
         {
+            for (float & c : cosine) {
+                c = zero;
+            }
             size_type i = 0;
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
-                auto & vcos = cosine[v];
                 auto & vmean = mean[v];
                 size_type j = 0;
                 for (int l = 0; l < BANDS; ++l) {
                     for (int m = -l; m <= l; ++m) {
-                        float & cc = (vcos[j] = zero);
+                        float & c = cosine[j];
                         float & cm = (vmean[j] = zero);
                         for (size_type s = 0; s < max_size; ++s) {
                             if (zero < pyramid[s].z) {
-                                cc += pyramid[s].z * sh_[i];
+                                c += pyramid[s].z * sh_[i];
                             }
                             cm += sh_[i];
                             ++i;
                         }
-                        cc *= (solid_angle / float(max_size));
-                        cm *= (solid_angle / float(max_size));
-                        //std::cout << std::setw(14) << cc << " - " << v << ' ' << l << ' ' << m << std::endl;
+                        c *= (solid_angle / float(max_size));
+                        std::cout << std::setw(14) << cm << " - " << v << ' ' << l << ' ' << m << std::endl;
                         ++j;
                     }
                 }
+            }
+            float const _4pi = 4.0f * std::acos(-one);
+            size_type k = 0;
+            for (float & c : cosine) {
+                c *= (_4pi / float(NSAMPLES));
+                std::cout << c << ' ' << k++ << std::endl;
             }
         }
     }

@@ -11,6 +11,8 @@
 #include <algorithm>
 #include <iostream>
 #include <iomanip>
+#include <ostream>
+#include <fstream>
 
 #include <cmath>
 #include <cassert>
@@ -89,8 +91,8 @@ struct spherical_harmonics
     {
         float len = length(pos);
 
-        float p = atan2f(pos.z, pos.x);
-        float t = acosf(pos.y / len);
+        float p = atan2f(pos.y, pos.x);
+        float t = acosf(pos.z / len);
 
         return SH(l, m, t, p);
     }
@@ -113,7 +115,8 @@ struct spherical_harmonics
 
     static constexpr size_type BANDS = 6;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 1000000;
+    static constexpr size_type NSAMPLES = 10000;
+    static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
 
@@ -186,11 +189,17 @@ struct spherical_harmonics
         sh_.reserve(BANDS * BANDS * NSAMPLES);
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
+            auto & vmean = mean[v];
+            size_type j = 0;
             for (int l = 0; l < BANDS; ++l) {
                 for (int m = -l; m <= l; ++m) {
+                    float & cm = (vmean[j] = zero);
                     for (size_type s = 0; s < max_size; ++s) {
                         sh_.push_back(SH(l, m, pyramid[s]));
+                        cm += sh_.back();
                     }
+                    cm *= (solid_angle / float(max_size));
+                    //std::cout << std::setw(14) << cm << " - " << v << ' ' << l << ' ' << m << std::endl;
                 }
             }
         }
@@ -202,21 +211,16 @@ struct spherical_harmonics
             size_type i = 0;
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
-                auto & vmean = mean[v];
                 size_type j = 0;
                 for (int l = 0; l < BANDS; ++l) {
                     for (int m = -l; m <= l; ++m) {
                         float & c = cosine[j];
-                        float & cm = (vmean[j] = zero);
                         for (size_type s = 0; s < max_size; ++s) {
                             if (zero < pyramid[s].z) {
                                 c += pyramid[s].z * sh_[i];
                             }
-                            cm += sh_[i];
                             ++i;
                         }
-                        c *= (solid_angle / float(max_size));
-                        std::cout << std::setw(14) << cm << " - " << v << ' ' << l << ' ' << m << std::endl;
                         ++j;
                     }
                 }
@@ -228,6 +232,30 @@ struct spherical_harmonics
                 std::cout << c << ' ' << k++ << std::endl;
             }
         }
+        std::ofstream of("sh.plt");
+        std::ostream & gnuplot_ = of;
+        gnuplot_ << "$sphere <<EOD\n";
+        for (size_type v = 0; v < NVERTICES; ++v) {
+            auto const & pyramid = uniform_sphere[v];
+            for (size_type s = 0; s < max_size; ++s) {
+                float const scale = SH(3, 0, pyramid[s]);
+                float3 const & point = pyramid[s] * scale;
+                gnuplot_ << point.x << ' ' << point.y << ' ' << point.z << '\n';
+            }
+            gnuplot_ << '\n';
+        }
+        gnuplot_ << "EOD\n";
+        gnuplot_ << "set view equal xyz\n"
+                    "set autoscale\n"
+                    "set key left\n"
+                    "set xrange [-1:1]\n"
+                    "set yrange [-1:1]\n"
+                    "set zrange [-1:1]\n"
+                    "set xyplane at -1\n";
+        gnuplot_ << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
+        gnuplot_ << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
+        gnuplot_ << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
+        gnuplot_ << "splot '$sphere' with points pointtype 1;\n";
     }
 
 };

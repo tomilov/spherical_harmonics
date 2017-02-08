@@ -237,7 +237,7 @@ struct spherical_harmonics
             }
         }
         // rotation:
-        float3 direction{1.0f, 1.0f, 1.0f};
+        float3 direction{1.0f, 0.0f, 0.0f};
         direction /= length(direction);
         float rcosine[BANDS * BANDS];
         {
@@ -262,7 +262,7 @@ struct spherical_harmonics
                     c += cosine[l] * SH(l, 0, point);
                 }
                 point *= c;
-                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+                gnuplot << point.z << ' ' << point.y << ' ' << point.x << '\n';
             }
             gnuplot << '\n';
         }

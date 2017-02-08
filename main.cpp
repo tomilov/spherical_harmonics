@@ -102,8 +102,8 @@ struct spherical_harmonics
         float d = dot(pos, pos);
         float len = sqrtf(d);
 
-        float p = atan2f(pos.z, pos.x);
-        float t = acosf(pos.y / len);
+        float p = atan2f(pos.y, pos.x);
+        float t = acosf(pos.z / len);
 
         return SH(l, m, t, p) * powf(d, -1.5f);
     }
@@ -113,7 +113,7 @@ struct spherical_harmonics
     std::mt19937_64 random_;
     std::normal_distribution< float > normal_distribution_; // standard normal distribution
 
-    static constexpr size_type BANDS = 6;
+    static constexpr size_type BANDS = 5;
     static constexpr size_type NVERTICES = 20;
     static constexpr size_type NSAMPLES = 10000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
@@ -124,13 +124,13 @@ struct spherical_harmonics
 
     size_type min_size() const
     {
-        size_type min_size_ = max_size;
-        for (auto const & pyramid_ : uniform_sphere) {
-            if (pyramid_.size() < min_size_) {
-                min_size_ = pyramid_.size();
+        size_type size = max_size;
+        for (auto const & pyramid : uniform_sphere) {
+            if (pyramid.size() < size) {
+                size = pyramid.size();
             }
         }
-        return min_size_;
+        return size;
     }
 
     std::vector< float > sh_;
@@ -149,12 +149,12 @@ struct spherical_harmonics
     size_type d_index(float3 direction) const
     {
         assert(!(length(direction) < -eps) && !(one + eps < length(direction)));
-        float cosines[NVERTICES];
+        float dot_products[NVERTICES];
         for (size_type i = 0; i < NVERTICES; ++i) {
-            cosines[i] = dot(dodecahedron_[i], direction);
+            dot_products[i] = dot(dodecahedron_[i], direction);
         }
-        auto const beg = std::cbegin(cosines);
-        auto const mm = std::minmax_element(beg, std::cend(cosines));
+        auto const beg = std::cbegin(dot_products);
+        auto const mm = std::minmax_element(beg, std::cend(dot_products));
         return static_cast< size_type >(std::distance(beg, mm.second));
     }
 
@@ -163,7 +163,7 @@ struct spherical_harmonics
     float cosine[BANDS * BANDS];
     float mean[NVERTICES][BANDS * BANDS];
 
-    void init()
+    void run()
     {
         {
             float const sqrt3 = std::sqrt(3.0f);
@@ -233,29 +233,37 @@ struct spherical_harmonics
             }
         }
         std::ofstream of("sh.plt");
-        std::ostream & gnuplot_ = of;
-        gnuplot_ << "$sphere <<EOD\n";
+        std::ostream & gnuplot = of;
+        gnuplot << "$cosine <<EOD\n";
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             for (size_type s = 0; s < max_size; ++s) {
-                float const scale = SH(3, 0, pyramid[s]);
-                float3 const & point = pyramid[s] * scale;
-                gnuplot_ << point.x << ' ' << point.y << ' ' << point.z << '\n';
+                float3 point = pyramid[s];
+                float c = zero;
+                size_type j = 0;
+                for (int l = 0; l < BANDS; ++l) {
+                    for (int m = -l; m <= l; ++m) {
+                        c += cosine[j] * SH(l, m, point);
+                        ++j;
+                    }
+                }
+                point *= c;
+                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
             }
-            gnuplot_ << '\n';
+            gnuplot << '\n';
         }
-        gnuplot_ << "EOD\n";
-        gnuplot_ << "set view equal xyz\n"
+        gnuplot << "EOD\n";
+        gnuplot << "set view equal xyz\n"
                     "set autoscale\n"
                     "set key left\n"
                     "set xrange [-1:1]\n"
                     "set yrange [-1:1]\n"
                     "set zrange [-1:1]\n"
                     "set xyplane at -1\n";
-        gnuplot_ << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
-        gnuplot_ << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
-        gnuplot_ << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
-        gnuplot_ << "splot '$sphere' with points pointtype 1;\n";
+        gnuplot << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
+        gnuplot << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
+        gnuplot << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
+        gnuplot << "splot '$cosine' with points pointtype 1;\n";
     }
 
 };
@@ -266,6 +274,6 @@ int main(int argc, char * argv [])
 {
     (void(argc), void(argv));
     spherical_harmonics spherical_harmonics_;
-    spherical_harmonics_.init();
+    spherical_harmonics_.run();
     return EXIT_SUCCESS;
 }

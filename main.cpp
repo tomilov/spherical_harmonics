@@ -92,15 +92,16 @@ struct spherical_harmonics
         float len = length(pos);
 
         float phi = atan2f(pos.y, pos.x);
+        float t = pos.z / len;
 
         const float sqrt2 = 1.4142135623731f;
 
         if (m == 0)
-            return K(l, 0) * P(l, m, pos.z / len);
+            return K(l, 0) * P(l, m, t);
         else if (m > 0)
-            return sqrt2 * K(l, m) * cosf(m * phi) * P(l, m, pos.z / len);
+            return sqrt2 * K(l, m) * cosf(m * phi) * P(l, m, t);
         else
-            return sqrt2 * K(l, -m) * sinf(-m * phi) * P(l, -m, pos.z / len);
+            return sqrt2 * K(l, -m) * sinf(-m * phi) * P(l, -m, t);
     }
 
     float SH_A(const int l, const int m, const float3 &pos)
@@ -119,9 +120,9 @@ struct spherical_harmonics
     std::mt19937_64 random_;
     std::normal_distribution< float > normal_distribution_; // standard normal distribution
 
-    static constexpr size_type BANDS = 5;
+    static constexpr size_type BANDS = 6;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 10000;
+    static constexpr size_type NSAMPLES = 1000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -164,15 +165,13 @@ struct spherical_harmonics
         return static_cast< size_type >(std::distance(beg, mm.second));
     }
 
-    float const solid_angle = (4 * std::acos(-one)) / NVERTICES; // pi / 5
-
-    float cosine[BANDS * BANDS];
+    float cosine[BANDS];
     float mean[NVERTICES][BANDS * BANDS];
 
     void operator () ()
     {
+        float const sqrt3 = std::sqrt(3.0f);
         {
-            float const sqrt3 = std::sqrt(3.0f);
             for (float3 & vertex : dodecahedron_) {
                 vertex /= sqrt3;
             }
@@ -204,8 +203,9 @@ struct spherical_harmonics
                         sh_.push_back(SH(l, m, pyramid[s]));
                         cm += sh_.back();
                     }
-                    cm *= (solid_angle / float(max_size));
+                    cm /= float(max_size);
                     //std::cout << std::setw(14) << cm << " - " << v << ' ' << l << ' ' << m << std::endl;
+                    ++j;
                 }
             }
         }
@@ -217,20 +217,16 @@ struct spherical_harmonics
             size_type i = 0;
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
-                size_type j = 0;
                 for (int l = 0; l < BANDS; ++l) {
-                    for (int m = -l; m <= l; ++m) {
-                        float & c = cosine[j];
-                        for (size_type s = 0; s < max_size; ++s) {
-                            if (m == 0) {
-                                if (zero < pyramid[s].z) {
-                                    c += pyramid[s].z * sh_[i];
-                                }
-                            }
-                            ++i;
+                    float & c = cosine[l];
+                    i += l * max_size;
+                    for (size_type s = 0; s < max_size; ++s) {
+                        if (zero < pyramid[s].z) {
+                            c += pyramid[s].z * sh_[i];
                         }
-                        ++j;
+                        ++i;
                     }
+                    i += l * max_size;
                 }
             }
             float const _4pi = 4.0f * std::acos(-one);
@@ -238,6 +234,19 @@ struct spherical_harmonics
             for (float & c : cosine) {
                 c *= (_4pi / float(NSAMPLES));
                 std::cout << c << ' ' << k++ << std::endl;
+            }
+        }
+        // rotation:
+        float3 direction{1.0f, 1.0f, 1.0f};
+        direction /= length(direction);
+        float rcosine[BANDS * BANDS];
+        {
+            size_type j = 0;
+            for (int l = 0; l < BANDS; ++l) {
+                for (int m = -l; m <= l; ++m) {
+                    rcosine[j] = cosine[l] * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction);
+                    ++j;
+                }
             }
         }
 #if 1
@@ -249,10 +258,25 @@ struct spherical_harmonics
             for (size_type s = 0; s < max_size; ++s) {
                 float3 point = pyramid[s];
                 float c = zero;
+                for (int l = 0; l < BANDS; ++l) {
+                    c += cosine[l] * SH(l, 0, point);
+                }
+                point *= c;
+                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+            }
+            gnuplot << '\n';
+        }
+        gnuplot << "EOD\n";
+        gnuplot << "$rcosine <<EOD\n";
+        for (size_type v = 0; v < NVERTICES; ++v) {
+            auto const & pyramid = uniform_sphere[v];
+            for (size_type s = 0; s < max_size; ++s) {
+                float3 point = pyramid[s];
+                float c = zero;
                 size_type j = 0;
                 for (int l = 0; l < BANDS; ++l) {
                     for (int m = -l; m <= l; ++m) {
-                        c += cosine[j] * SH(l, m, point);
+                        c += rcosine[j] * SH(l, m, point);
                         ++j;
                     }
                 }
@@ -263,11 +287,23 @@ struct spherical_harmonics
         }
         gnuplot << "EOD\n";
 #if 0
+        gnuplot << "$mean <<EOD\n";
+        for (size_type v = 0; v < NVERTICES; ++v) {
+            auto const & pyramid = uniform_sphere[v];
+            float const m = mean[v][2];
+            for (size_type s = 0; s < max_size; ++s) {
+                float3 point = pyramid[s] * std::abs(m);
+                // l * (l + 1) + m
+                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+            }
+            gnuplot << '\n';
+        }
+        gnuplot << "EOD\n";
         gnuplot << "$sh <<EOD\n";
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             for (size_type s = 0; s < max_size; ++s) {
-                float const scale = SH(2, 0, pyramid[s]);
+                float const scale = SH(1, 0, pyramid[s]);
                 float3 const & point = pyramid[s] * std::abs(scale);
                 gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
             }
@@ -285,7 +321,11 @@ struct spherical_harmonics
         gnuplot << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
         gnuplot << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
         gnuplot << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
-        gnuplot << "splot '$cosine' with points pointtype 1;\n";
+        gnuplot << "set arrow 4 from 0,0,0 to "
+                << direction.x << ',' << direction.y << ',' << direction.z
+                << " linecolor rgbcolor 'black'\n";
+        gnuplot << "splot '$cosine' with points pointtype 1"
+                   ", '$rcosine' with points pointtype 1\n";
 #endif
     }
 

@@ -113,9 +113,9 @@ struct spherical_harmonics
     std::mt19937_64 random_;
     std::normal_distribution< float > normal_distribution_; // standard normal distribution
 
-    static constexpr size_type BANDS = 5;
+    static constexpr size_type BANDS = 4;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 10000;
+    static constexpr size_type NSAMPLES = 1000000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -163,7 +163,7 @@ struct spherical_harmonics
     float cosine[BANDS * BANDS];
     float mean[NVERTICES][BANDS * BANDS];
 
-    void run()
+    void operator () ()
     {
         {
             float const sqrt3 = std::sqrt(3.0f);
@@ -232,6 +232,7 @@ struct spherical_harmonics
                 std::cout << c << ' ' << k++ << std::endl;
             }
         }
+#if 0
         std::ofstream of("sh.plt");
         std::ostream & gnuplot = of;
         gnuplot << "$cosine <<EOD\n";
@@ -247,23 +248,39 @@ struct spherical_harmonics
                         ++j;
                     }
                 }
-                point *= c;
+                if (zero < c) {
+                    point *= c;
+                    gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+                }
+            }
+            gnuplot << '\n';
+        }
+        gnuplot << "EOD\n";
+#if 0
+        gnuplot << "$sh <<EOD\n";
+        for (size_type v = 0; v < NVERTICES; ++v) {
+            auto const & pyramid = uniform_sphere[v];
+            for (size_type s = 0; s < max_size; ++s) {
+                float const scale = std::abs(SH(2, 0, pyramid[s]));
+                float3 const & point = pyramid[s] * scale;
                 gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
             }
             gnuplot << '\n';
         }
         gnuplot << "EOD\n";
+#endif
         gnuplot << "set view equal xyz\n"
-                    "set autoscale\n"
-                    "set key left\n"
-                    "set xrange [-1:1]\n"
-                    "set yrange [-1:1]\n"
-                    "set zrange [-1:1]\n"
-                    "set xyplane at -1\n";
+                   "set autoscale\n"
+                   "set key left\n"
+                   "set xrange [-1:1]\n"
+                   "set yrange [-1:1]\n"
+                   "set zrange [-1:1]\n"
+                   "set xyplane at -1\n";
         gnuplot << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
         gnuplot << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
         gnuplot << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
         gnuplot << "splot '$cosine' with points pointtype 1;\n";
+#endif
     }
 
 };
@@ -274,6 +291,6 @@ int main(int argc, char * argv [])
 {
     (void(argc), void(argv));
     spherical_harmonics spherical_harmonics_;
-    spherical_harmonics_.run();
+    spherical_harmonics_();
     return EXIT_SUCCESS;
 }

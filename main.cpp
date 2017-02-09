@@ -237,7 +237,7 @@ struct spherical_harmonics
             }
         }
         // rotation:
-        float3 direction{1.0f, 0.0f, 0.0f};
+        float3 direction{1.0f, 2.0f, 5.0f};
         direction /= length(direction);
         float rcosine[BANDS * BANDS];
         {
@@ -252,6 +252,9 @@ struct spherical_harmonics
 #if 1
         std::ofstream of("sh.plt");
         std::ostream & gnuplot = of;
+        auto const print = [&] (float3 const & p) { gnuplot << p.x << ' ' << p.y << ' ' << p.z << '\n'; };
+
+        auto const rot = rotateZ3(std::atan2(-direction.x, direction.y)) * rotateX3(std::atan2(-std::hypot(direction.x, direction.y), direction.z));
         gnuplot << "$cosine <<EOD\n";
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
@@ -262,7 +265,8 @@ struct spherical_harmonics
                     c += cosine[l] * SH(l, 0, point);
                 }
                 point *= c;
-                gnuplot << point.z << ' ' << point.y << ' ' << point.x << '\n';
+                point = rot * point;
+                print(point);
             }
             gnuplot << '\n';
         }
@@ -281,7 +285,7 @@ struct spherical_harmonics
                     }
                 }
                 point *= c;
-                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+                print(point);
             }
             gnuplot << '\n';
         }
@@ -294,7 +298,7 @@ struct spherical_harmonics
             for (size_type s = 0; s < max_size; ++s) {
                 float3 point = pyramid[s] * std::abs(m);
                 // l * (l + 1) + m
-                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+                print(point);
             }
             gnuplot << '\n';
         }
@@ -305,7 +309,7 @@ struct spherical_harmonics
             for (size_type s = 0; s < max_size; ++s) {
                 float const scale = SH(1, 0, pyramid[s]);
                 float3 const & point = pyramid[s] * std::abs(scale);
-                gnuplot << point.x << ' ' << point.y << ' ' << point.z << '\n';
+                print(point);
             }
             gnuplot << '\n';
         }

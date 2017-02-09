@@ -122,7 +122,7 @@ struct spherical_harmonics
 
     static constexpr size_type BANDS = 6;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 1000;
+    static constexpr size_type NSAMPLES = 10000000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -166,8 +166,8 @@ struct spherical_harmonics
         return static_cast< size_type >(std::distance(beg, m));
     }
 
-    float cosine[BANDS];
-    float mean[NVERTICES][BANDS * BANDS];
+    double cosine[BANDS];
+    double mean[NVERTICES][BANDS * BANDS];
 
     void operator () ()
     {
@@ -197,7 +197,7 @@ struct spherical_harmonics
             size_type j = 0;
             for (int l = 0; l < BANDS; ++l) {
                 for (int m = -l; m <= l; ++m) {
-                    float & cm = (vmean[j] = zero);
+                    auto & cm = (vmean[j] = zero);
                     for (size_type s = 0; s < max_size; ++s) {
                         sh.push_back(SH(l, m, pyramid[s]));
                         cm += sh.back();
@@ -209,15 +209,23 @@ struct spherical_harmonics
             }
         }
         assert(sh.size() == (BANDS * BANDS * NSAMPLES));
+        std::cout << std::setprecision(10);
+        for (auto const & v : mean) {
+            for (auto const & cc : v) {
+                std::cout << cc << ' ';
+            }
+            std::cout << std::endl;
+        }
+#if 0
         {
-            for (float & c : cosine) {
+            for (auto & c : cosine) {
                 c = zero;
             }
             size_type i = 0;
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
                 for (int l = 0; l < BANDS; ++l) {
-                    float & c = cosine[l];
+                    auto & c = cosine[l];
                     i += l * max_size;
                     for (size_type s = 0; s < max_size; ++s) {
                         float dot_product = pyramid[s].z;
@@ -230,7 +238,7 @@ struct spherical_harmonics
                 }
             }
             size_type k = 0;
-            for (float & c : cosine) {
+            for (auto & c : cosine) {
                 c *= ((4 * PI) / NSAMPLES);
                 std::cout << c << ' ' << k++ << std::endl;
             }
@@ -242,14 +250,15 @@ struct spherical_harmonics
         {
             size_type j = 0;
             for (int l = 0; l < BANDS; ++l) {
-                float const & c = cosine[l];
+                auto const & c = cosine[l];
                 for (int m = -l; m <= l; ++m) {
                     rcosine[j] = c * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction);
                     ++j;
                 }
             }
         }
-#if 1
+#endif
+#if 0
         std::ofstream of("sh.plt");
         std::ostream & gnuplot = of;
         auto const print = [&] (float3 const & p) { gnuplot << p.x << ' ' << p.y << ' ' << p.z << '\n'; };
@@ -259,14 +268,12 @@ struct spherical_harmonics
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             for (size_type s = 0; s < max_size; ++s) {
-                float3 point = pyramid[s];
+                float3 const & point = pyramid[s];
                 float c = zero;
                 for (int l = 0; l < BANDS; ++l) {
                     c += cosine[l] * SH(l, 0, point);
                 }
-                point *= c;
-                point = rot * point;
-                print(point);
+                print(rot * point * c);
             }
             gnuplot << '\n';
         }
@@ -275,7 +282,7 @@ struct spherical_harmonics
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             for (size_type s = 0; s < max_size; ++s) {
-                float3 point = pyramid[s];
+                float3 const & point = pyramid[s];
                 float c = zero;
                 size_type j = 0;
                 for (int l = 0; l < BANDS; ++l) {
@@ -284,8 +291,7 @@ struct spherical_harmonics
                         ++j;
                     }
                 }
-                point *= c;
-                print(point);
+                print(point * c);
             }
             gnuplot << '\n';
         }
@@ -337,10 +343,13 @@ struct spherical_harmonics
 
 #include <cstdlib>
 
+#include <windows.h>
+
 int main(int argc, char * argv [])
 {
     (void(argc), void(argv));
     spherical_harmonics spherical_harmonics_;
     spherical_harmonics_();
+    ::WinExec("gnuplot -p sh.plt", SW_SHOW);
     return EXIT_SUCCESS;
 }

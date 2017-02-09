@@ -140,7 +140,7 @@ struct spherical_harmonics
         return size;
     }
 
-    std::vector< float > sh_;
+    std::vector< float > sh;
 
     float const phi = (one + std::sqrt(5.0f)) / 2.0f; // golden ratio
     float const rphi = one / phi;
@@ -153,16 +153,17 @@ struct spherical_harmonics
                                        {one, one, -one}, {one, -one, -one}, {-one, one, -one}, {-one, -one, -one}}; // circumsphere radius = sqrt(3)
     //float const cone_cos = 0.9f;
 
-    size_type d_index(float3 direction) const
+    float dot_products[NVERTICES];
+
+    size_type d_index(float3 direction)
     {
         assert(!(length(direction) < -eps) && !(one + eps < length(direction)));
-        float dot_products[NVERTICES];
         for (size_type i = 0; i < NVERTICES; ++i) {
             dot_products[i] = dot(dodecahedron_[i], direction);
         }
         auto const beg = std::cbegin(dot_products);
-        auto const mm = std::minmax_element(beg, std::cend(dot_products));
-        return static_cast< size_type >(std::distance(beg, mm.second));
+        auto const m = std::max_element(beg, std::cend(dot_products));
+        return static_cast< size_type >(std::distance(beg, m));
     }
 
     float cosine[BANDS];
@@ -171,10 +172,8 @@ struct spherical_harmonics
     void operator () ()
     {
         float const sqrt3 = std::sqrt(3.0f);
-        {
-            for (float3 & vertex : dodecahedron_) {
-                vertex /= sqrt3;
-            }
+        for (float3 & vertex : dodecahedron_) {
+            vertex /= sqrt3;
         }
         for (auto & pyramid : uniform_sphere) {
             pyramid.reserve(max_size);
@@ -191,7 +190,7 @@ struct spherical_harmonics
             assert(!(pyramid.size() < max_size));
             pyramid.resize(max_size);
         }
-        sh_.reserve(BANDS * BANDS * NSAMPLES);
+        sh.reserve(BANDS * BANDS * NSAMPLES);
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             auto & vmean = mean[v];
@@ -200,8 +199,8 @@ struct spherical_harmonics
                 for (int m = -l; m <= l; ++m) {
                     float & cm = (vmean[j] = zero);
                     for (size_type s = 0; s < max_size; ++s) {
-                        sh_.push_back(SH(l, m, pyramid[s]));
-                        cm += sh_.back();
+                        sh.push_back(SH(l, m, pyramid[s]));
+                        cm += sh.back();
                     }
                     cm /= float(max_size);
                     //std::cout << std::setw(14) << cm << " - " << v << ' ' << l << ' ' << m << std::endl;
@@ -209,7 +208,7 @@ struct spherical_harmonics
                 }
             }
         }
-        assert(sh_.size() == (BANDS * BANDS * NSAMPLES));
+        assert(sh.size() == (BANDS * BANDS * NSAMPLES));
         {
             for (float & c : cosine) {
                 c = zero;
@@ -221,18 +220,18 @@ struct spherical_harmonics
                     float & c = cosine[l];
                     i += l * max_size;
                     for (size_type s = 0; s < max_size; ++s) {
-                        if (zero < pyramid[s].z) {
-                            c += pyramid[s].z * sh_[i];
+                        float dot_product = pyramid[s].z;
+                        if (zero < dot_product) {
+                            c += dot_product * sh[i];
                         }
                         ++i;
                     }
                     i += l * max_size;
                 }
             }
-            float const _4pi = 4.0f * std::acos(-one);
             size_type k = 0;
             for (float & c : cosine) {
-                c *= (_4pi / float(NSAMPLES));
+                c *= ((4 * PI) / NSAMPLES);
                 std::cout << c << ' ' << k++ << std::endl;
             }
         }
@@ -243,8 +242,9 @@ struct spherical_harmonics
         {
             size_type j = 0;
             for (int l = 0; l < BANDS; ++l) {
+                float const & c = cosine[l];
                 for (int m = -l; m <= l; ++m) {
-                    rcosine[j] = cosine[l] * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction);
+                    rcosine[j] = c * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction);
                     ++j;
                 }
             }

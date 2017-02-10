@@ -325,7 +325,8 @@ struct spherical_harmonics
         }
         gnuplot << "EOD\n";
 #endif
-        gnuplot << "set view equal xyz\n"
+        gnuplot << "set term wxt\n"
+                   "set view equal xyz\n"
                    "set autoscale\n"
                    "set key left\n"
                    "set xrange [-1:1]\n"
@@ -347,13 +348,11 @@ struct spherical_harmonics
 
 #include <cstdlib>
 
-#include <windows.h>
-
 int main(int argc, char * argv [])
 {
     (void(argc), void(argv));
     spherical_harmonics spherical_harmonics_;
     spherical_harmonics_();
-    ::WinExec("gnuplot -p sh.plt", SW_SHOW);
+    std::system("gnuplot -p sh.plt");
     return EXIT_SUCCESS;
 }

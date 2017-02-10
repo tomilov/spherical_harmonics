@@ -71,7 +71,11 @@ struct spherical_harmonics
     // Normalization constant
     float K(const int l, const int m)
     {
-        return sqrtf(((2.0f * l + 1.0f) * factorial(l - m)) / (4.0f * PI * factorial(l + m)));
+        if (m == 0) {
+            return sqrtf((2.0f * l + 1.0f) / (4.0f * PI));
+        } else {
+            return sqrtf(((2.0f * l + 1.0f) * factorial(l - m)) / (4.0f * PI * factorial(l + m)));
+        }
     }
 
     // SH coefficient computation
@@ -122,7 +126,7 @@ struct spherical_harmonics
 
     static constexpr size_type BANDS = 6;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 10000000;
+    static constexpr size_type NSAMPLES = 1000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -216,7 +220,7 @@ struct spherical_harmonics
             }
             std::cout << std::endl;
         }
-#if 0
+#if 1
         {
             for (auto & c : cosine) {
                 c = zero;
@@ -244,7 +248,7 @@ struct spherical_harmonics
             }
         }
         // rotation:
-        float3 direction{1.0f, 2.0f, 5.0f};
+        float3 direction{1.0f, 2.0f, 3.0f};
         direction /= length(direction);
         float rcosine[BANDS * BANDS];
         {
@@ -258,7 +262,7 @@ struct spherical_harmonics
             }
         }
 #endif
-#if 0
+#if 1
         std::ofstream of("sh.plt");
         std::ostream & gnuplot = of;
         auto const print = [&] (float3 const & p) { gnuplot << p.x << ' ' << p.y << ' ' << p.z << '\n'; };

@@ -25,9 +25,141 @@ struct spherical_harmonics
     float const one = 1.0f;
     float const zero = 0.0f;
 
-    float factorial(const int x)
+    float SH_Cartesian(int l, int m, float3 n)
     {
-        float f = 1.0f;
+        //n /= length(n);
+        float value = 1000.0;
+        switch (l) {
+        case 0 : {
+            value = 1.0;
+            break;
+        }
+        case 1 : {
+            switch (m) {
+            case -1 : {
+                value = -n.y;
+                break;
+            }
+            case 0 : {
+                value = n.z;
+                break;
+            }
+            case 1 : {
+                value = -n.x;
+                break;
+            }
+            }
+            break;
+        }
+        case 2 : {
+            switch (m) {
+            case -2 : {
+                value = sqrt(3.0) * n.x * n.y;
+                break;
+            }
+            case -1 : {
+                value = -sqrt(3.0) * n.y * n.z;
+                break;
+            }
+            case 0 : {
+                value = n.z * n.z - 0.5 * (n.x * n.x + n.y * n.y);
+                break;
+            }
+            case 1 : {
+                value = -sqrt(3.0) * n.z * n.x;
+                break;
+            }
+            case 2 : {
+                value = sqrt(3.0 / 4.0) * (n.x * n.x - n.y * n.y);
+                break;
+            }
+            }
+            break;
+        }
+        case 3 : {
+            switch (m) {
+            case -3 : {
+                value = -sqrt(5.0 / 8.0) * (3.0 * n.x * n.x - n.y * n.y) * n.y;
+                break;
+            }
+            case -2 : {
+                value = sqrt(15.0) * n.x * n.y * n.z;
+                break;
+            }
+            case -1 : {
+                value = -sqrt(3.0 / 8.0) * n.y * (4.0 * n.z * n.z - (n.x * n.x + n.y * n.y));
+                break;
+            }
+            case 0 : {
+                value = n.z * (n.z * n.z - 1.5 * (n.x * n.x + n.y * n.y));
+                break;
+            }
+            case 1 : {
+                value = -sqrt(3.0 / 8.0) * n.x * (4.0 * n.z * n.z - (n.x * n.x + n.y * n.y));
+                break;
+            }
+            case 2 : {
+                value = sqrt(15.0 / 4.0) * (n.x * n.x - n.y * n.y) * n.z;
+                break;
+            }
+            case 3 : {
+                value = -sqrt(5.0 / 8.0) * (n.x * n.x - 3.0 * n.y * n.y) * n.x;
+                break;
+            }
+            }
+            break;
+        }
+        case 4 : {
+            switch (m) {
+            case -4 : {
+                value = sqrt(35.0 / 4.0) * n.x * n.y * (n.x * n.x - n.y * n.y);
+                break;
+            }
+            case -3 : {
+                value = -sqrt(35.0 / 8.0) * (3.0 * n.x * n.x - n.y * n.y) * n.y * n.z;
+                break;
+            }
+            case -2 : {
+                value = sqrt(5.0 / 4.0) * n.x * n.y * (7.0 * n.z * n.z - 1.0);
+                break;
+            }
+            case -1 : {
+                value = -sqrt(5.0 / 8.0) * n.y * n.z * (7.0 * n.z * n.z - 3.0);
+                break;
+            }
+            case 0 : {
+                n.z *= n.z;
+                value = 0.125 * ((35.0 * n.z - 30.0) * n.z + 3.0);
+                break;
+            }
+            case 1 : {
+                value = -sqrt(5.0 / 8.0) * n.x * n.z * (7.0 * n.z * n.z - 3.0);
+                break;
+            }
+            case 2 : {
+                value = sqrt(5.0 / 16.0) * (n.x * n.x - n.y * n.y) * (7.0 * n.z * n.z - 1.0);
+                break;
+            }
+            case 3 : {
+                value = -sqrt(35.0 / 8.0) * (n.x * n.x - 3.0 * n.y * n.y) * n.x * n.z;
+                break;
+            }
+            case 4 : {
+                n.x *= n.x;
+                n.y *= n.y;
+                value = sqrt(35.0 / 64.0) * (n.x * n.x + n.y * n.y - 6.0 * n.x * n.y);
+                break;
+            }
+            }
+            break;
+        }
+        }
+        return value;
+    }
+
+    float factorial(int x)
+    {
+        float f = 1.0;
         for (int i = 2; i <= x; i++)
         {
             f *= i;
@@ -37,12 +169,12 @@ struct spherical_harmonics
     }
 
     // Evaluate an Associated Legendre Polynomial P(l, m, x) at x
-    float P(const int l, const int m, const float x)
+    float P(int l, int m, float x)
     {
-        float pmm = 1.0f;
+        float pmm = 1.0;
         if (m > 0)
         {
-            float somx2 = sqrtf((1.0f - x) * (1.0f + x));
+            float somx2 = sqrt((1.0 - x) * (1.0 + x));
 
             float fact = 1.0;
             for (int i = 1; i <= m; i++)
@@ -53,13 +185,13 @@ struct spherical_harmonics
         }
         if (l == m) return pmm;
 
-        float pmmp1 = x * (2.0f * m + 1.0f) * pmm;
+        float pmmp1 = x * (2.0 * m + 1.0) * pmm;
         if (l == m + 1) return pmmp1;
 
         float pll = 0.0;
         for (int ll = m + 2; ll <= l; ++ll)
         {
-            pll = ((2.0f * ll - 1.0f) * x * pmmp1 - (ll + m - 1.0f) * pmm) / (ll - m);
+            pll = ((2.0 * ll - 1.0) * x * pmmp1 - (ll + m - 1.0) * pmm) / (ll - m);
             pmm = pmmp1;
             pmmp1 = pll;
         }
@@ -68,160 +200,37 @@ struct spherical_harmonics
     }
 
     // Normalization constant
-    float K(const int l, const int m)
+    float K(int l, int m)
     {
         if (m == 0) {
-            return sqrtf((2.0f * l + 1.0f) / (4.0f * PI));
+            return sqrt((2.0 * l + 1.0) / (4.0 * PI));
         } else {
-            return sqrtf(((2.0f * l + 1.0f) * factorial(l - m)) / (4.0f * PI * factorial(l + m)));
+            return sqrt(((2.0 * l + 1.0) * factorial(l - m)) / (4.0 * PI * factorial(l + m)));
         }
     }
 
-    // SH coefficient computation
-    float SH(const int l, const int m, const float theta, const float phi)
+    float SH(const int l, const int m, float3 pos)
     {
-        const float sqrt2 = 1.4142135623731f;
-
-        if (m == 0)
-            return K(l, 0) * P(l, m, cosf(theta));
-        else if (m > 0)
-            return sqrt2 * K(l, m) * cosf(m * phi) * P(l, m, cosf(theta));
-        else
-            return sqrt2 * K(l, -m) * sinf(-m * phi) * P(l, -m, cosf(theta));
-    }
-
-    float SH(const int l, const int m, const float3 &pos)
-    {
+        float x;
         float len = length(pos);
 
-        float phi = atan2f(pos.y, pos.x);
+        float phi = atan2(pos.y, pos.x);
         float t = pos.z / len;
 
-        const float sqrt2 = 1.4142135623731f;
+        float sqrt2 = 1.4142135623731;
 
         if (m == 0)
-            return K(l, 0) * P(l, m, t);
+            x = K(l, 0) * P(l, m, t);
         else if (m > 0)
-            return sqrt2 * K(l, m) * cosf(m * phi) * P(l, m, t);
+            x = sqrt2 * K(l, m) * cos(m * phi) * P(l, m, t);
         else
-            return sqrt2 * K(l, -m) * sinf(-m * phi) * P(l, -m, t);
-    }
+            x = sqrt2 * K(l, -m) * sin(-m * phi) * P(l, -m, t);
 
-    float rsqrt(float x) const
-    {
-        return 1.0f / sqrtf(x);
-    }
-
-    float SH_(int l, int m, float3 n)
-    {
-        //n /= length(n);
-        switch (l) {
-        case 0 : {
-            return 1.0;
+        float y = sqrt((2.0 * l + 1.0) / (4.0 * PI)) * SH_Cartesian(l, m, pos);
+        if (std::abs(x - y) > 1E-5) {
+            std::cerr << x << ' ' << y << std::endl;
         }
-        case 1 : {
-            switch (m) {
-            case -1 : {
-                return -n.y;
-            }
-            case 0 : {
-                return n.z;
-            }
-            case 1 : {
-                return -n.x;
-            }
-            }
-        }
-        case 2 : {
-            switch (m) {
-            case -2 : {
-                return sqrt(3.0) * n.x * n.y;
-            }
-            case -1 : {
-                return -sqrt(3.0) * n.y * n.z;
-            }
-            case 0 : {
-                return n.z * n.z - 0.5 * (n.x * n.x + n.y * n.y);
-            }
-            case 1 : {
-                return -sqrt(3.0) * n.z * n.x;
-            }
-            case 2 : {
-                return 0.5 * sqrt(3.0) * (n.x * n.x - n.y * n.y);
-            }
-            }
-        }
-        case 3 : {
-            switch (m) {
-            case -3 : {
-                return -sqrt(5.0 / 8.0) * (3.0 * n.x * n.x - n.y * n.y) * n.y;
-            }
-            case -2 : {
-                return sqrt(15.0) * n.x * n.y * n.z;
-            }
-            case -1 : {
-                return -sqrt(3.0 / 8.0) * n.y * (4.0 * n.z * n.z - (n.x * n.x + n.y * n.y));
-            }
-            case 0 : {
-                return n.z * (n.z * n.z - 1.5 * (n.x * n.x + n.y * n.y));
-            }
-            case 1 : {
-                return -sqrt(3.0 / 8.0) * n.x * (4.0 * n.z * n.z - (n.x * n.x + n.y * n.y));
-            }
-            case 2 : {
-                return sqrt(15.0 / 4.0) * (n.x * n.x - n.y * n.y) * n.z;
-            }
-            case 3 : {
-                return -sqrt(5.0 / 8.0) * (n.x * n.x - 3.0 * n.y * n.y) * n.x;
-            }
-            }
-        }
-        case 4 : {
-            switch (m) {
-            case -4 : {
-                return sqrt(35.0 / 4.0) * n.x * n.y * (n.x * n.x - n.y * n.y);
-            }
-            case -3 : {
-                return -sqrt(35.0 / 8.0) * (3.0 * n.x * n.x - n.y * n.y) * n.y * n.z;
-            }
-            case -2 : {
-                return sqrt(5.0 / 4.0) * n.x * n.y * (7.0 * n.z * n.z - 1.0);
-            }
-            case -1 : {
-                return -sqrt(5.0 / 8.0) * n.y * n.z * (7.0 * n.z * n.z - 3.0);
-            }
-            case 0 : {
-                n.z *= n.z;
-                return 0.125 * ((35.0 * n.z - 30.0) * n.z + 3.0);
-            }
-            case 1 : {
-                return -sqrt(5.0 / 8.0) * n.x * n.z * (7.0 * n.z * n.z - 3.0);
-            }
-            case 2 : {
-                return sqrt(5.0 / 16.0) * (n.x * n.x - n.y * n.y) * (7.0 * n.z * n.z - 1.0);
-            }
-            case 3 : {
-                return -sqrt(35.0 / 8.0) * (n.x * n.x - 3.0 * n.y * n.y) * n.x * n.z;
-            }
-            case 4 : {
-                n.x *= n.x;
-                n.y *= n.y;
-                return sqrt(35.0 / 64.0) * (n.x * n.x + n.y * n.y - 6.0 * n.x * n.y);
-            }
-            }
-        }
-        }
-    }
-
-    float SH_A(const int l, const int m, const float3 &pos)
-    {
-        float d = dot(pos, pos);
-        float len = sqrtf(d);
-
-        float p = atan2f(pos.y, pos.x);
-        float t = acosf(pos.z / len);
-
-        return SH(l, m, t, p) * powf(d, -1.5f);
+        return y;
     }
 
     using seed_type = typename std::mt19937_64::result_type;
@@ -231,7 +240,7 @@ struct spherical_harmonics
 
     static constexpr size_type BANDS = 5;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 1000;
+    static constexpr size_type NSAMPLES = 10000000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -264,7 +273,7 @@ struct spherical_harmonics
 
     float dot_products[NVERTICES];
 
-    size_type d_index(float3 direction)
+    size_type cone_index(float3 direction)
     {
         assert(!(length(direction) < -eps) && !(one + eps < length(direction)));
         for (size_type i = 0; i < NVERTICES; ++i) {
@@ -292,7 +301,10 @@ struct spherical_harmonics
             float len = length(point);
             if (eps < len) {
                 point /= len;
-                uniform_sphere[d_index(point)].push_back(std::move(point));
+                auto & pyramid = uniform_sphere[cone_index(point)];
+                if (pyramid.size() < max_size) {
+                    pyramid.push_back(std::move(point));
+                }
             }
         }
         for (auto & pyramid : uniform_sphere) { // truncate
@@ -300,31 +312,28 @@ struct spherical_harmonics
             pyramid.resize(max_size);
         }
         sh.reserve(BANDS * BANDS * NSAMPLES);
+        std::cout << std::setprecision(10);
         for (size_type v = 0; v < NVERTICES; ++v) {
+            //std::cout << '{';
             auto const & pyramid = uniform_sphere[v];
             auto & vmean = mean[v];
             size_type j = 0;
             for (int l = 0; l < BANDS; ++l) {
                 for (int m = -l; m <= l; ++m) {
-                    auto & cm = (vmean[j] = zero);
+                    auto & cm = vmean[j];
+                    cm = zero;
                     for (size_type s = 0; s < max_size; ++s) {
                         sh.push_back(SH(l, m, pyramid[s]));
                         cm += sh.back();
                     }
-                    cm /= float(max_size);
-                    //std::cout << std::setw(14) << cm << " - " << v << ' ' << l << ' ' << m << std::endl;
+                    cm *= 1.0 / (5.0 * max_size);
+                    //std::cout << cm << ", ";
                     ++j;
                 }
             }
+            //std::cout << "},\n";
         }
-        assert(sh.size() == (BANDS * BANDS * NSAMPLES));/*
-        std::cout << std::setprecision(10);
-        for (auto const & v : mean) {
-            for (auto const & cc : v) {
-                std::cout << cc << ' ';
-            }
-            std::cout << std::endl;
-        }*/
+        assert(sh.size() == (BANDS * BANDS * NSAMPLES));
 #if 1
         {
             for (auto & c : cosine) {
@@ -346,12 +355,25 @@ struct spherical_harmonics
                     i += l * max_size;
                 }
             }
+            assert(i == sh.size());
             size_type k = 0;
             for (auto & c : cosine) {
                 c *= ((4 * PI) / NSAMPLES);
                 std::cout << c << ' ' << k++ << std::endl;
             }
         }
+        for (auto const & vmean : mean) {
+            std::cout << '{';
+            size_type j = 0;
+            for (int l = 0; l < BANDS; ++l) {
+                auto & c = cosine[l];
+                for (int m = -l; m <= l; ++m) {
+                    std::cout << vmean[j++] * c << ", ";
+                }
+            }
+            std::cout << "},\n";
+        }
+        std::cout << std::flush;
         // rotation:
         float3 direction{1.0f, 2.0f, 3.0f};
         direction /= length(direction);
@@ -361,8 +383,8 @@ struct spherical_harmonics
             for (int l = 0; l < BANDS; ++l) {
                 auto const & c = cosine[l];
                 for (int m = -l; m <= l; ++m) {
-                    //rcosine[j] = c * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction);
-                    rcosine[j] = c * SH_(l, m, direction);
+                    rcosine[j] = c * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction);
+                    //rcosine[j] = c * SH_(l, m, direction);
                     //std::cerr << std::abs(c * std::sqrt(4 * PI / (2 * l + 1)) * SH(l, m, direction) - rcosine[j]) << std::endl;
                     ++j;
                 }

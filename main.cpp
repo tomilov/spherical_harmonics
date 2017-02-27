@@ -386,11 +386,10 @@ struct spherical_harmonics
             gnuplot << "EOD\n";
         }
 
-#if 0
-
+#if 1
         float cone[BANDS * BANDS];
         std::deque< float3 > true_cone;
-#if 1
+#if 0
         {
             for (auto & c : cone) {
                 c = zero;
@@ -451,11 +450,12 @@ struct spherical_harmonics
         }
 #endif
         {
+            std::deque< float3 > cone_neg;
             gnuplot << "$cone <<EOD\n";
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
                 for (size_type s = 0; s < max_size; ++s) {
-                    float3 const & point = pyramid[s];
+                    float3 point = pyramid[s];
                     float c = zero;
                     size_type i = 0;
                     for (int l = 0; l < BANDS; ++l) {
@@ -464,8 +464,20 @@ struct spherical_harmonics
                             ++i;
                         }
                     }
-                    print(point * c);
+                    point *= c;
+                    if (zero < c) {
+                        print(point);
+                    } else {
+                        cone_neg.push_back(point);
+                    }
                 }
+                gnuplot << '\n';
+            }
+            gnuplot << "EOD\n";
+
+            gnuplot << "$cone_neg <<EOD\n";
+            for (float3 const & point : cone_neg) {
+                print(point);
                 gnuplot << '\n';
             }
             gnuplot << "EOD\n";
@@ -479,6 +491,7 @@ struct spherical_harmonics
             gnuplot << "EOD\n";
         }
         gnuplot << "splot '$cone' with points pointtype 1"
+                   ", '$cone_neg' with points pointtype 1"
                    ", '$true_cone' with points pointtype 1\n";
 #else
         double cosine[BANDS];

@@ -226,11 +226,15 @@ struct spherical_harmonics
         else
             x = sqrt2 * K(l, -m) * sin(-m * phi) * P(l, -m, t);
 
-        float y = sqrt((2.0 * l + 1.0) / (4.0 * PI)) * SH_Cartesian(l, m, pos);
-        if (std::abs(x - y) > 1E-5) {
-            std::cerr << x << ' ' << y << std::endl;
+        if (4 < l) {
+            return x;
+        } else {
+            float y = sqrt((2.0 * l + 1.0) / (4.0 * PI)) * SH_Cartesian(l, m, pos);
+            if (std::abs(x - y) > 1E-5) {
+                std::cerr << x << ' ' << y << std::endl;
+            }
+            return y;
         }
-        return y;
     }
 
     using seed_type = typename std::mt19937_64::result_type;
@@ -240,7 +244,7 @@ struct spherical_harmonics
 
     static constexpr size_type BANDS = 5;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 10000000;
+    static constexpr size_type NSAMPLES = 1000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -284,7 +288,6 @@ struct spherical_harmonics
         return static_cast< size_type >(std::distance(beg, m));
     }
 
-    double cosine[BANDS];
     double mean[NVERTICES][BANDS * BANDS];
 
     void operator () (std::ostream & gnuplot)
@@ -334,32 +337,176 @@ struct spherical_harmonics
             //std::cout << "},\n";
         }
         assert(sh.size() == (BANDS * BANDS * NSAMPLES));
+
+        float3 direction{1.0f, 2.0f, 3.0f};
+        direction /= length(direction);
 #if 1
+        auto const print = [&] (float3 const & p) { gnuplot << p.x << ' ' << p.y << ' ' << p.z << '\n'; };
+        gnuplot << "set term wxt\n"
+                   "set view equal xyz\n"
+                   "set autoscale\n"
+                   "set key left\n"
+                   "set xrange [-1:1]\n"
+                   "set yrange [-1:1]\n"
+                   "set zrange [-1:1]\n"
+                   "set xyplane at -1\n";
+        gnuplot << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
+        gnuplot << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
+        gnuplot << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
+        gnuplot << "set arrow 4 from 0,0,0 to "
+                << direction.x << ',' << direction.y << ',' << direction.z
+                << " linecolor rgbcolor 'black'\n";
+
+        {
+            constexpr size_type i = 2;
+            gnuplot << "$mean <<EOD\n";
+            for (size_type v = 0; v < NVERTICES; ++v) {
+                auto const & pyramid = uniform_sphere[v];
+                float const m = mean[v][i];
+                for (size_type s = 0; s < max_size; ++s) {
+                    float3 point = pyramid[s] * std::abs(m);
+                    // l * l + m
+                    print(point);
+                }
+                gnuplot << '\n';
+            }
+            gnuplot << "EOD\n";
+        }
+        {
+            gnuplot << "$sh <<EOD\n";
+            for (size_type v = 0; v < NVERTICES; ++v) {
+                auto const & pyramid = uniform_sphere[v];
+                for (size_type s = 0; s < max_size; ++s) {
+                    float const scale = SH(1, 0, pyramid[s]);
+                    float3 const & point = pyramid[s] * std::abs(scale);
+                    print(point);
+                }
+                gnuplot << '\n';
+            }
+            gnuplot << "EOD\n";
+        }
+
+#if 0
+
+        float cone[BANDS * BANDS];
+        std::deque< float3 > true_cone;
+#if 1
+        {
+            for (auto & c : cone) {
+                c = zero;
+            }
+            size_type k = 0;
+            for (size_type v = 0; v < NVERTICES; ++v) {
+                assert(k == BANDS * BANDS * max_size * v);
+                auto const & pyramid = uniform_sphere[v];
+                size_type i = 0;
+                for (int l = 0; l < BANDS; ++l) {
+                    for (int m = -l; m <= l; ++m) {
+                        auto & c = cone[i];
+                        for (size_type s = 0; s < max_size; ++s) {
+                            float dot_product = dot(pyramid[s], direction);
+                            if (0.9 <= dot_product) {
+                                c += sh[k];
+                                true_cone.push_back(pyramid[s]);
+                            }
+                            ++k;
+                        }
+                        ++i;
+                    }
+                }
+                assert(i == BANDS * BANDS);
+            }
+            assert(k == sh.size());
+            for (auto & c : cone) {
+                c *= ((4 * PI) / NSAMPLES);
+            }
+        }
+#else
+        gnuplot << "unset arrow 4\n";
+        {
+            for (auto & c : cone) {
+                c = zero;
+            }
+            constexpr size_type v = 0;
+            assert(v < NVERTICES);
+            size_type k = BANDS * BANDS * max_size * v;
+            auto const & pyramid = uniform_sphere[v];
+            size_type i = 0;
+            for (int l = 0; l < BANDS; ++l) {
+                for (int m = -l; m <= l; ++m) {
+                    auto & c = cone[i];
+                    for (size_type s = 0; s < max_size; ++s) {
+                        c += sh[k];
+                        true_cone.push_back(pyramid[s]);
+                        ++k;
+                    }
+                    ++i;
+                }
+            }
+            assert(i == BANDS * BANDS);
+            assert(k == BANDS * BANDS * max_size * (v + 1));
+            for (auto & c : cone) {
+                c *= ((4 * PI) / NSAMPLES);
+            }
+        }
+#endif
+        {
+            gnuplot << "$cone <<EOD\n";
+            for (size_type v = 0; v < NVERTICES; ++v) {
+                auto const & pyramid = uniform_sphere[v];
+                for (size_type s = 0; s < max_size; ++s) {
+                    float3 const & point = pyramid[s];
+                    float c = zero;
+                    size_type i = 0;
+                    for (int l = 0; l < BANDS; ++l) {
+                        for (int m = -l; m <= l; ++m) {
+                            c += cone[i] * SH(l, m, point);
+                            ++i;
+                        }
+                    }
+                    print(point * c);
+                }
+                gnuplot << '\n';
+            }
+            gnuplot << "EOD\n";
+        }
+        {
+            gnuplot << "$true_cone <<EOD\n";
+            for (float3 const & point : true_cone) {
+                print(point);
+                gnuplot << '\n';
+            }
+            gnuplot << "EOD\n";
+        }
+        gnuplot << "splot '$cone' with points pointtype 1"
+                   ", '$true_cone' with points pointtype 1\n";
+#else
+        double cosine[BANDS];
         {
             for (auto & c : cosine) {
                 c = zero;
             }
-            size_type i = 0;
+            size_type k = 0;
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
                 for (int l = 0; l < BANDS; ++l) {
                     auto & c = cosine[l];
-                    i += l * max_size;
+                    k += l * max_size;
                     for (size_type s = 0; s < max_size; ++s) {
                         float dot_product = pyramid[s].z;
                         if (zero < dot_product) {
-                            c += dot_product * sh[i];
+                            c += dot_product * sh[k];
                         }
-                        ++i;
+                        ++k;
                     }
-                    i += l * max_size;
+                    k += l * max_size;
                 }
             }
-            assert(i == sh.size());
-            size_type k = 0;
+            assert(k == sh.size());
+            size_type l = 0;
             for (auto & c : cosine) {
                 c *= ((4 * PI) / NSAMPLES);
-                std::cout << c << ' ' << k++ << std::endl;
+                std::cout << c << ' ' << l++ << std::endl;
             }
         }
         for (auto const & vmean : mean) {
@@ -375,8 +522,6 @@ struct spherical_harmonics
         }
         std::cout << std::flush;
         // rotation:
-        float3 direction{1.0f, 2.0f, 3.0f};
-        direction /= length(direction);
         float rcosine[BANDS * BANDS];
         {
             size_type j = 0;
@@ -390,9 +535,6 @@ struct spherical_harmonics
                 }
             }
         }
-#endif
-#if 1
-        auto const print = [&] (float3 const & p) { gnuplot << p.x << ' ' << p.y << ' ' << p.z << '\n'; };
 
         auto const rot = rotateZ3(std::atan2(-direction.x, direction.y)) * rotateX3(std::atan2(-std::hypot(direction.x, direction.y), direction.z));
         gnuplot << "$cosine <<EOD\n";
@@ -415,11 +557,11 @@ struct spherical_harmonics
             for (size_type s = 0; s < max_size; ++s) {
                 float3 const & point = pyramid[s];
                 float c = zero;
-                size_type j = 0;
+                size_type i = 0;
                 for (int l = 0; l < BANDS; ++l) {
                     for (int m = -l; m <= l; ++m) {
-                        c += rcosine[j] * SH(l, m, point);
-                        ++j;
+                        c += rcosine[i] * SH(l, m, point);
+                        ++i;
                     }
                 }
                 print(point * c);
@@ -427,47 +569,9 @@ struct spherical_harmonics
             gnuplot << '\n';
         }
         gnuplot << "EOD\n";
-#if 0
-        gnuplot << "$mean <<EOD\n";
-        for (size_type v = 0; v < NVERTICES; ++v) {
-            auto const & pyramid = uniform_sphere[v];
-            float const m = mean[v][2];
-            for (size_type s = 0; s < max_size; ++s) {
-                float3 point = pyramid[s] * std::abs(m);
-                // l * (l + 1) + m
-                print(point);
-            }
-            gnuplot << '\n';
-        }
-        gnuplot << "EOD\n";
-        gnuplot << "$sh <<EOD\n";
-        for (size_type v = 0; v < NVERTICES; ++v) {
-            auto const & pyramid = uniform_sphere[v];
-            for (size_type s = 0; s < max_size; ++s) {
-                float const scale = SH(1, 0, pyramid[s]);
-                float3 const & point = pyramid[s] * std::abs(scale);
-                print(point);
-            }
-            gnuplot << '\n';
-        }
-        gnuplot << "EOD\n";
-#endif
-        gnuplot << "set term wxt\n"
-                   "set view equal xyz\n"
-                   "set autoscale\n"
-                   "set key left\n"
-                   "set xrange [-1:1]\n"
-                   "set yrange [-1:1]\n"
-                   "set zrange [-1:1]\n"
-                   "set xyplane at -1\n";
-        gnuplot << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
-        gnuplot << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
-        gnuplot << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
-        gnuplot << "set arrow 4 from 0,0,0 to "
-                << direction.x << ',' << direction.y << ',' << direction.z
-                << " linecolor rgbcolor 'black'\n";
         gnuplot << "splot '$cosine' with points pointtype 1"
                    ", '$rcosine' with points pointtype 1\n";
+#endif
 #endif
         gnuplot << std::flush;
     }

@@ -386,7 +386,7 @@ struct spherical_harmonics
             gnuplot << "EOD\n";
         }
 
-#if 1
+#if 0
         float cone[BANDS * BANDS];
         std::deque< float3 > true_cone;
 #if 0

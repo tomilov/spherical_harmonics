@@ -285,10 +285,17 @@ struct spherical_harmonics
     };
 
     size_type facets[NVERTICES][3] = {
+    #if 0
         {1,  4, 0}, { 4, 9, 0}, {4,  5, 9}, {8, 5,  4}, { 1, 8, 4},
         {1, 10, 8}, {10, 3, 8}, {8,  3, 5}, {3, 2,  5}, { 3, 7, 2},
         {3, 10, 7}, {10, 6, 7}, {6, 11, 7}, {6, 0, 11}, { 6, 1, 0},
         {10, 1, 6}, {11, 0, 9}, {2, 11, 9}, {5, 2,  9}, {11, 2, 7},
+    #else
+        {1, 8, 4}, {10, 1, 6}, {4, 9, 0}, {6, 0, 11}, {1, 4, 0},
+        {6, 1, 0}, {1, 10, 8}, {11, 0, 9}, {8, 5, 4}, {10, 6, 7},
+        {4, 5, 9}, {6, 11, 7}, {10, 3, 8}, {2, 11, 9}, {3, 2, 5},
+        {3, 7, 2}, {8, 3, 5}, {3, 10, 7}, {5, 2, 9}, {11, 2, 7}
+    #endif
     };
 
     float dot_products[NVERTICES];
@@ -368,9 +375,9 @@ struct spherical_harmonics
             }
             ps << "EOD\n";
             ps << "splot '$icosahedron' with points pointtype 1"
-               //<< ", '' with labels offset character 0, character 1 notitle"
+                  //<< ", '' with labels offset character 0, character 1 notitle"
                << ", '$ifaces' with lines"
-               //<< ", '' with labels offset character 0, character -1 notitle"
+                  //<< ", '' with labels offset character 0, character -1 notitle"
                << ", '$cfaces' with points pointtype 1"
                << ", '' with labels offset character 0, character 1 notitle"
                << ", '$dodecahedron' with points pointtype 1"
@@ -379,6 +386,13 @@ struct spherical_harmonics
             static size_type correspondence[NVERTICES] = {
                 4, 15, 1, 13, 0, 14, 5, 16, 3, 11, 2, 12, 6, 17, 8, 9, 7, 10, 18, 19
             };
+            for (size_type i = 0; i < NVERTICES; ++i) {
+                auto const & facet = facets[correspondence[i]];
+                std::cout << '{' << facet[0]
+                          << ", " << facet[1]
+                          << ", " << facet[2]
+                          << "},\n";
+            }
         }
         for (auto & pyramid : uniform_sphere) {
             pyramid.reserve(max_size);
@@ -427,19 +441,19 @@ struct spherical_harmonics
         direction /= length(direction);
 #if 1
         sh << "set term wxt\n"
-                   "set view equal xyz\n"
-                   "set autoscale\n"
-                   "set key left\n"
-                   "set xrange [-1:1]\n"
-                   "set yrange [-1:1]\n"
-                   "set zrange [-1:1]\n"
-                   "set xyplane at -1\n";
+              "set view equal xyz\n"
+              "set autoscale\n"
+              "set key left\n"
+              "set xrange [-1:1]\n"
+              "set yrange [-1:1]\n"
+              "set zrange [-1:1]\n"
+              "set xyplane at -1\n";
         sh << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
         sh << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
         sh << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
         sh << "set arrow 4 from 0,0,0 to "
-                << direction.x << ',' << direction.y << ',' << direction.z
-                << " linecolor rgbcolor 'black'\n";
+           << direction.x << ',' << direction.y << ',' << direction.z
+           << " linecolor rgbcolor 'black'\n";
 
         {
             constexpr size_type i = 2;
@@ -667,7 +681,7 @@ struct spherical_harmonics
         }
         sh << "EOD\n";
         sh << "splot '$cosine' with points pointtype 1"
-                   ", '$rcosine' with points pointtype 1\n";
+              ", '$rcosine' with points pointtype 1\n";
 #endif
 #endif
         sh << std::flush;

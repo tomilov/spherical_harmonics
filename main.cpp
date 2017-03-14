@@ -291,10 +291,10 @@ struct spherical_harmonics
         {3, 10, 7}, {10, 6, 7}, {6, 11, 7}, {6, 0, 11}, { 6, 1, 0},
         {10, 1, 6}, {11, 0, 9}, {2, 11, 9}, {5, 2,  9}, {11, 2, 7},
     #else
-        {1, 8, 4}, {10, 1, 6}, {4, 9, 0}, {6, 0, 11}, {1, 4, 0},
-        {6, 1, 0}, {1, 10, 8}, {11, 0, 9}, {8, 5, 4}, {10, 6, 7},
-        {4, 5, 9}, {6, 11, 7}, {10, 3, 8}, {2, 11, 9}, {3, 2, 5},
-        {3, 7, 2}, {8, 3, 5}, {3, 10, 7}, {5, 2, 9}, {11, 2, 7}
+        {1, 8, 4}, {10,  1, 6}, { 4,  9, 0}, {6,  0, 11}, { 1, 4, 0},
+        {6, 1, 0}, { 1, 10, 8}, {11,  0, 9}, {8,  5,  4}, {10, 6, 7},
+        {4, 5, 9}, { 6, 11, 7}, {10,  3, 8}, {2, 11,  9}, { 3, 2, 5},
+        {3, 7, 2}, { 8,  3, 5}, { 3, 10, 7}, {5,  2,  9}, {11, 2, 7}
     #endif
     };
 
@@ -383,16 +383,6 @@ struct spherical_harmonics
                << ", '$dodecahedron' with points pointtype 1"
                << ", '' with labels offset character 0, character 1 notitle"
                << std::endl;
-            static size_type correspondence[NVERTICES] = {
-                4, 15, 1, 13, 0, 14, 5, 16, 3, 11, 2, 12, 6, 17, 8, 9, 7, 10, 18, 19
-            };
-            for (size_type i = 0; i < NVERTICES; ++i) {
-                auto const & facet = facets[correspondence[i]];
-                std::cout << '{' << facet[0]
-                          << ", " << facet[1]
-                          << ", " << facet[2]
-                          << "},\n";
-            }
         }
         for (auto & pyramid : uniform_sphere) {
             pyramid.reserve(max_size);

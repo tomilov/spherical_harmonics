@@ -376,6 +376,9 @@ struct spherical_harmonics
                << ", '$dodecahedron' with points pointtype 1"
                << ", '' with labels offset character 0, character 1 notitle"
                << std::endl;
+            static size_type correspondence[NVERTICES] = {
+                4, 15, 1, 13, 0, 14, 5, 16, 3, 11, 2, 12, 6, 17, 8, 9, 7, 10, 18, 19
+            };
         }
         for (auto & pyramid : uniform_sphere) {
             pyramid.reserve(max_size);

@@ -374,12 +374,18 @@ struct spherical_harmonics
                 print(center, i + 1);
             }
             ps << "EOD\n";
+            static size_type strip[NVERTICES] = {
+                 0,  4,  5,  3, 11,
+                19, 13,  7,  2, 10,
+                 8, 16, 12,  6,  1,
+                 9, 17, 15, 14, 18
+            };
             ps << "splot '$icosahedron' with points pointtype 1"
                   //<< ", '' with labels offset character 0, character 1 notitle"
                << ", '$ifaces' with lines"
                   //<< ", '' with labels offset character 0, character -1 notitle"
                << ", '$cfaces' with points pointtype 1"
-               << ", '' with labels offset character 0, character 1 notitle"
+               //<< ", '' with labels offset character 0, character 1 notitle"
                << ", '$dodecahedron' with points pointtype 1"
                << ", '' with labels offset character 0, character 1 notitle"
                << std::endl;

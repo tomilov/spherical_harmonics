@@ -244,7 +244,8 @@ struct spherical_harmonics
 
     static constexpr size_type BANDS = 5;
     static constexpr size_type NVERTICES = 20;
-    static constexpr size_type NSAMPLES = 1000;
+    static constexpr size_type NFACETS = 12;
+    static constexpr size_type NSAMPLES = NVERTICES * 1000;
     static_assert((NSAMPLES % NVERTICES) == 0, "!");
 
     std::vector< float3 > uniform_sphere[NVERTICES]; // uniformely distributed samples near the dodecahedron vertices on unit sphere
@@ -262,18 +263,33 @@ struct spherical_harmonics
         return size;
     }
 
-    std::vector< float > sh;
+    std::vector< float > sh_;
 
     float const phi = (one + std::sqrt(5.0f)) / 2.0f; // golden ratio
     float const rphi = one / phi;
-    float3 dodecahedron[NVERTICES] = {{one, one, one}, {one, -one, one}, {-one, one, one}, {-one, -one, one},
-                                      {zero, rphi, phi}, {zero, -rphi, phi},
-                                      {phi, zero, rphi}, {-phi, zero, rphi},
-                                      {rphi, phi, zero}, {rphi, -phi, zero}, {-rphi, phi, zero}, {-rphi, -phi, zero},
-                                      {phi, zero, -rphi}, {-phi, zero, -rphi},
-                                      {zero, rphi, -phi}, {zero, -rphi, -phi},
-                                      {one, one, -one}, {one, -one, -one}, {-one, one, -one}, {-one, -one, -one}}; // circumsphere radius = sqrt(3)
+    float3 dodecahedron[NVERTICES] = {
+        {one, one, one}, {one, -one, one}, {-one, one, one}, {-one, -one, one},
+        {zero, rphi, phi}, {zero, -rphi, phi},
+        {phi, zero, rphi}, {-phi, zero, rphi},
+        {rphi, phi, zero}, {rphi, -phi, zero}, {-rphi, phi, zero}, {-rphi, -phi, zero},
+        {phi, zero, -rphi}, {-phi, zero, -rphi},
+        {zero, rphi, -phi}, {zero, -rphi, -phi},
+        {one, one, -one}, {one, -one, -one}, {-one, one, -one}, {-one, -one, -one}
+    }; // circumsphere radius = sqrt(3)
     //float const cone_cos = 0.9f;
+
+    float3 icosahedron[NFACETS] = {
+        {-1.0, 0.0, phi}, { 1.0, 0.0,  phi}, {-1.0,  0.0, -phi}, { 1.0,  0.0, -phi},
+        { 0.0, phi, 1.0}, { 0.0, phi, -1.0}, { 0.0, -phi,  1.0}, { 0.0, -phi, -1.0},
+        { phi, 1.0, 0.0}, {-phi, 1.0,  0.0}, { phi, -1.0,  0.0}, {-phi, -1.0,  0.0}
+    };
+
+    size_type facets[NVERTICES][3] = {
+        {1,  4, 0}, { 4, 9, 0}, {4,  5, 9}, {8, 5,  4}, { 1, 8, 4},
+        {1, 10, 8}, {10, 3, 8}, {8,  3, 5}, {3, 2,  5}, { 3, 7, 2},
+        {3, 10, 7}, {10, 6, 7}, {6, 11, 7}, {6, 0, 11}, { 6, 1, 0},
+        {10, 1, 6}, {11, 0, 9}, {2, 11, 9}, {5, 2,  9}, {11, 2, 7},
+    };
 
     float dot_products[NVERTICES];
 
@@ -290,11 +306,76 @@ struct spherical_harmonics
 
     double mean[NVERTICES][BANDS * BANDS];
 
-    void operator () (std::ostream & gnuplot)
+    void operator () (std::ostream & sh, std::ostream & ps)
     {
-        float const sqrt3 = std::sqrt(3.0f);
-        for (float3 & vertex : dodecahedron) {
-            vertex /= sqrt3;
+        {
+            float const sqrt3 = length(dodecahedron[0]);
+            for (float3 & vertex : dodecahedron) {
+                vertex /= sqrt3;
+            }
+        }
+        {
+            float const l = length(icosahedron[0]);
+            for (float3 & vertex : icosahedron) {
+                vertex /= l;
+            }
+        }
+        {
+            auto const print = [&] (float3 const & p, size_type const i = 0)
+            {
+                ps << p.x << ' ' << p.y << ' ' << p.z;
+                if (0 < i) {
+                    ps << ' ' << (i - 1);
+                }
+                ps << '\n';
+            };
+            ps << "set term wxt\n"
+                  "set view equal xyz\n"
+                  "set autoscale\n"
+                  "set key left\n"
+                  "set xrange [*:*]\n"
+                  "set yrange [*:*]\n"
+                  "set zrange [*:*]\n"
+                  "set xyplane at -1\n";
+            ps << "$icosahedron << EOD\n";
+            for (size_type i = 0; i < NFACETS; ++i) {
+                print(icosahedron[i], i + 1);
+            }
+            ps << "EOD\n";
+            ps << "$dodecahedron << EOD\n";
+            for (size_type i = 0; i < NVERTICES; ++i) {
+                print(dodecahedron[i], i + 1);
+            }
+            ps << "EOD\n";
+            ps << "$ifaces << EOD\n";
+            for (size_type i = 0; i < NVERTICES; ++i) {
+                auto const & facet = facets[i];
+                size_type const u = facet[0];
+                print(icosahedron[u], u + 1);
+                size_type const v = facet[1];
+                print(icosahedron[v], v + 1);
+                size_type const w = facet[2];
+                print(icosahedron[w], w + 1);
+                print(icosahedron[u], 0);
+                ps << "\n\n";
+            }
+            ps << "EOD\n";
+            ps << "$cfaces << EOD\n";
+            for (size_type i = 0; i < NVERTICES; ++i) {
+                auto const & facet = facets[i];
+                float3 const center = (icosahedron[facet[0]] + icosahedron[facet[1]] + icosahedron[facet[2]]) / 3.0;
+                print(center, i + 1);
+            }
+            ps << "EOD\n";
+            ps << "splot '$icosahedron' with points pointtype 1"
+               //<< ", '' with labels offset character 0, character 1 notitle"
+               << ", '$ifaces' with lines"
+               //<< ", '' with labels offset character 0, character -1 notitle"
+               << ", '$cfaces' with points pointtype 1"
+               << ", '' with labels offset character 0, character 1 notitle"
+               << ", '$dodecahedron' with points pointtype 1"
+               << ", '' with labels offset character 0, character 1 notitle"
+               << std::endl;
         }
         for (auto & pyramid : uniform_sphere) {
             pyramid.reserve(max_size);
@@ -314,7 +395,7 @@ struct spherical_harmonics
             assert(!(pyramid.size() < max_size));
             pyramid.resize(max_size);
         }
-        sh.reserve(BANDS * BANDS * NSAMPLES);
+        sh_.reserve(BANDS * BANDS * NSAMPLES);
         std::cout << std::setprecision(10);
         for (size_type v = 0; v < NVERTICES; ++v) {
             //std::cout << '{';
@@ -326,8 +407,8 @@ struct spherical_harmonics
                     auto & cm = vmean[j];
                     cm = zero;
                     for (size_type s = 0; s < max_size; ++s) {
-                        sh.push_back(SH(l, m, pyramid[s]));
-                        cm += sh.back();
+                        sh_.push_back(SH(l, m, pyramid[s]));
+                        cm += sh_.back();
                     }
                     cm *= 1.0 / (5.0 * max_size);
                     //std::cout << cm << ", ";
@@ -336,13 +417,13 @@ struct spherical_harmonics
             }
             //std::cout << "},\n";
         }
-        assert(sh.size() == (BANDS * BANDS * NSAMPLES));
+        assert(sh_.size() == (BANDS * BANDS * NSAMPLES));
 
+        auto const print = [&] (float3 const & p, size_type const i = 0) { sh << p.x << ' ' << p.y << ' ' << p.z << ' ' << i << '\n'; };
         float3 direction{1.0f, 2.0f, 3.0f};
         direction /= length(direction);
 #if 1
-        auto const print = [&] (float3 const & p) { gnuplot << p.x << ' ' << p.y << ' ' << p.z << '\n'; };
-        gnuplot << "set term wxt\n"
+        sh << "set term wxt\n"
                    "set view equal xyz\n"
                    "set autoscale\n"
                    "set key left\n"
@@ -350,16 +431,16 @@ struct spherical_harmonics
                    "set yrange [-1:1]\n"
                    "set zrange [-1:1]\n"
                    "set xyplane at -1\n";
-        gnuplot << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
-        gnuplot << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
-        gnuplot << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
-        gnuplot << "set arrow 4 from 0,0,0 to "
+        sh << "set arrow 1 from 0,0,0 to 1,0,0 linecolor rgbcolor 'red'\n";
+        sh << "set arrow 2 from 0,0,0 to 0,1,0 linecolor rgbcolor 'green'\n";
+        sh << "set arrow 3 from 0,0,0 to 0,0,1 linecolor rgbcolor 'blue'\n";
+        sh << "set arrow 4 from 0,0,0 to "
                 << direction.x << ',' << direction.y << ',' << direction.z
                 << " linecolor rgbcolor 'black'\n";
 
         {
             constexpr size_type i = 2;
-            gnuplot << "$mean <<EOD\n";
+            sh << "$mean <<EOD\n";
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
                 float const m = mean[v][i];
@@ -368,12 +449,12 @@ struct spherical_harmonics
                     // l * l + m
                     print(point);
                 }
-                gnuplot << '\n';
+                sh << '\n';
             }
-            gnuplot << "EOD\n";
+            sh << "EOD\n";
         }
         {
-            gnuplot << "$sh <<EOD\n";
+            sh << "$sh <<EOD\n";
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
                 for (size_type s = 0; s < max_size; ++s) {
@@ -381,9 +462,9 @@ struct spherical_harmonics
                     float3 const & point = pyramid[s] * std::abs(scale);
                     print(point);
                 }
-                gnuplot << '\n';
+                sh << '\n';
             }
-            gnuplot << "EOD\n";
+            sh << "EOD\n";
         }
 
 #if 0
@@ -508,14 +589,14 @@ struct spherical_harmonics
                     for (size_type s = 0; s < max_size; ++s) {
                         float dot_product = pyramid[s].z;
                         if (zero < dot_product) {
-                            c += dot_product * sh[k];
+                            c += dot_product * sh_[k];
                         }
                         ++k;
                     }
                     k += l * max_size;
                 }
             }
-            assert(k == sh.size());
+            assert(k == sh_.size());
             size_type l = 0;
             for (auto & c : cosine) {
                 c *= ((4 * PI) / NSAMPLES);
@@ -550,7 +631,7 @@ struct spherical_harmonics
         }
 
         auto const rot = rotateZ3(std::atan2(-direction.x, direction.y)) * rotateX3(std::atan2(-std::hypot(direction.x, direction.y), direction.z));
-        gnuplot << "$cosine <<EOD\n";
+        sh << "$cosine <<EOD\n";
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             for (size_type s = 0; s < max_size; ++s) {
@@ -561,10 +642,10 @@ struct spherical_harmonics
                 }
                 print(rot * point * c);
             }
-            gnuplot << '\n';
+            sh << '\n';
         }
-        gnuplot << "EOD\n";
-        gnuplot << "$rcosine <<EOD\n";
+        sh << "EOD\n";
+        sh << "$rcosine <<EOD\n";
         for (size_type v = 0; v < NVERTICES; ++v) {
             auto const & pyramid = uniform_sphere[v];
             for (size_type s = 0; s < max_size; ++s) {
@@ -579,14 +660,14 @@ struct spherical_harmonics
                 }
                 print(point * c);
             }
-            gnuplot << '\n';
+            sh << '\n';
         }
-        gnuplot << "EOD\n";
-        gnuplot << "splot '$cosine' with points pointtype 1"
+        sh << "EOD\n";
+        sh << "splot '$cosine' with points pointtype 1"
                    ", '$rcosine' with points pointtype 1\n";
 #endif
 #endif
-        gnuplot << std::flush;
+        sh << std::flush;
     }
 
 };
@@ -598,9 +679,17 @@ struct spherical_harmonics
 int main(int argc, char * argv [])
 {
     (void(argc), void(argv));
-    spherical_harmonics spherical_harmonics_;
-    std::ofstream of("sh.plt");
-    spherical_harmonics_(of);
-    std::system("gnuplot -p sh.plt");
+    {
+        spherical_harmonics spherical_harmonics_;
+        std::ofstream sh("sh.plt");
+        std::ofstream ps("ps.plt");
+        spherical_harmonics_(sh, ps);
+    } // flush files before using them
+    if (std::system("gnuplot -p ps.plt") != 0) {
+        return EXIT_FAILURE;
+    }
+    if (std::system("gnuplot -p sh.plt") != 0) {
+        return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
 }

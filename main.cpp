@@ -376,8 +376,9 @@ struct spherical_harmonics
                 cfaces[i] = center;
             }
             ps << "EOD\n";
+            constexpr size_type const strip[NVERTICES] = {0,  4,  5,  3, 11, 19, 13,  7,  2, 10, 8, 16, 12,  6,  1, 9, 17, 15, 14, 18};
             ps << "$strip << EOD\n";
-            for (auto const i : {0,  4,  5,  3, 11, 19, 13,  7,  2, 10, 8, 16, 12,  6,  1, 9, 17, 15, 14, 18}) {
+            for (auto const i : strip) {
                 print(cfaces[i], 0);
             }
             ps << "EOD\n";
@@ -391,6 +392,32 @@ struct spherical_harmonics
                << ", '' with labels offset character 0, character 1 notitle"
                << ", '$strip' with lines"
                << std::endl;
+            {
+                std::set< size_type > prev, next;
+                {
+                    auto const & facet = facets[strip[0]];
+                    prev.insert({facet[0], facet[1], facet[2]});
+                    std::cout << "first triple: "
+                              << facet[0] << ' '
+                              << facet[1] << ' '
+                              << facet[2] << std::endl;
+                }
+                for (size_type i = 1; i < NVERTICES; ++i) {
+                    auto const & facet = facets[strip[i]];
+                    next.insert({facet[0], facet[1], facet[2]});
+                    size_type next_vertex = NVERTICES;
+                    std::set_difference(std::cbegin(prev), std::cend(prev),
+                                        std::cbegin(next), std::cend(next),
+                                        &next_vertex);
+                    std::cout << next_vertex;
+                    std::set_difference(std::cbegin(next), std::cend(next),
+                                        std::cbegin(prev), std::cend(prev),
+                                        &next_vertex);
+                    std::cout << " replaced with " << next_vertex << std::endl;
+                    prev = std::move(next);
+                }
+                // 1, 4, 0, 6, 11, 7, 2, 9, 0, 4, 5, 8, 3, 10, 1, 6, 7, 3, 2, 5, 9
+            }
         }
         for (auto & pyramid : uniform_sphere) {
             pyramid.reserve(max_size);

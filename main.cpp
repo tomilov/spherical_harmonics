@@ -367,19 +367,20 @@ struct spherical_harmonics
                 ps << "\n\n";
             }
             ps << "EOD\n";
+            float3 cfaces[NVERTICES];
             ps << "$cfaces << EOD\n";
             for (size_type i = 0; i < NVERTICES; ++i) {
                 auto const & facet = facets[i];
                 float3 const center = (icosahedron[facet[0]] + icosahedron[facet[1]] + icosahedron[facet[2]]) / 3.0;
                 print(center, i + 1);
+                cfaces[i] = center;
             }
             ps << "EOD\n";
-            static size_type strip[NVERTICES] = {
-                 0,  4,  5,  3, 11,
-                19, 13,  7,  2, 10,
-                 8, 16, 12,  6,  1,
-                 9, 17, 15, 14, 18
-            };
+            ps << "$strip << EOD\n";
+            for (auto const i : {0,  4,  5,  3, 11, 19, 13,  7,  2, 10, 8, 16, 12,  6,  1, 9, 17, 15, 14, 18}) {
+                print(cfaces[i], 0);
+            }
+            ps << "EOD\n";
             ps << "splot '$icosahedron' with points pointtype 1"
                   //<< ", '' with labels offset character 0, character 1 notitle"
                << ", '$ifaces' with lines"
@@ -388,6 +389,7 @@ struct spherical_harmonics
                //<< ", '' with labels offset character 0, character 1 notitle"
                << ", '$dodecahedron' with points pointtype 1"
                << ", '' with labels offset character 0, character 1 notitle"
+               << ", '$strip' with lines"
                << std::endl;
         }
         for (auto & pyramid : uniform_sphere) {
@@ -432,7 +434,7 @@ struct spherical_harmonics
         }
         assert(sh_.size() == (BANDS * BANDS * NSAMPLES));
 
-        auto const print = [&] (float3 const & p, size_type const i = 0) { sh << p.x << ' ' << p.y << ' ' << p.z << ' ' << i << '\n'; };
+        auto const print = [&] (float3 const & p) { sh << p.x << ' ' << p.y << ' ' << p.z << '\n'; };
         float3 direction{1.0f, 2.0f, 3.0f};
         direction /= length(direction);
 #if 1
@@ -515,7 +517,7 @@ struct spherical_harmonics
             }
         }
 #else
-        gnuplot << "unset arrow 4\n";
+        sh << "unset arrow 4\n";
         {
             for (auto & c : cone) {
                 c = zero;
@@ -545,7 +547,7 @@ struct spherical_harmonics
 #endif
         {
             std::deque< float3 > cone_neg;
-            gnuplot << "$cone <<EOD\n";
+            sh << "$cone <<EOD\n";
             for (size_type v = 0; v < NVERTICES; ++v) {
                 auto const & pyramid = uniform_sphere[v];
                 for (size_type s = 0; s < max_size; ++s) {
@@ -565,26 +567,26 @@ struct spherical_harmonics
                         cone_neg.push_back(point);
                     }
                 }
-                gnuplot << '\n';
+                sh << '\n';
             }
-            gnuplot << "EOD\n";
+            sh << "EOD\n";
 
-            gnuplot << "$cone_neg <<EOD\n";
+            sh << "$cone_neg <<EOD\n";
             for (float3 const & point : cone_neg) {
                 print(point);
-                gnuplot << '\n';
+                sh << '\n';
             }
-            gnuplot << "EOD\n";
+            sh << "EOD\n";
         }
         {
-            gnuplot << "$true_cone <<EOD\n";
+            sh << "$true_cone <<EOD\n";
             for (float3 const & point : true_cone) {
                 print(point);
-                gnuplot << '\n';
+                sh << '\n';
             }
-            gnuplot << "EOD\n";
+            sh << "EOD\n";
         }
-        gnuplot << "splot '$cone' with points pointtype 1"
+        sh << "splot '$cone' with points pointtype 1"
                    ", '$cone_neg' with points pointtype 1"
                    ", '$true_cone' with points pointtype 1\n";
 #else

@@ -13,7 +13,11 @@
 #include <stddef.h>
 #include <tchar.h>
 
+#ifdef _MSC_VER
+#include <intrin.h>
+#else
 #include <x86intrin.h>
+#endif
 
 /** \file
     Platform definitions.  This file defines various basic types and a handful use useful macros.
